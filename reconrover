@@ -17,7 +17,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[RichHandler()]
 )
-logger = logging.getLogger("comprehensive_scanner")
+logger = logging.getLogger("ReconRover")
 
 def run_command(command, output_file=None):
     with console.status(f"[bold green]Running[/bold green] {command}...") as status:
