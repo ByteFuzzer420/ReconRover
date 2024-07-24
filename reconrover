@@ -1,0 +1,113 @@
+#!/usr/bin/python3
+
+import argparse
+import subprocess
+import os
+import re
+import logging
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.progress import Progress
+from rich.table import Table
+
+console = Console()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler()]
+)
+logger = logging.getLogger("comprehensive_scanner")
+
+def run_command(command, output_file=None):
+    with console.status(f"[bold green]Running[/bold green] {command}...") as status:
+        with open(output_file, "w") if output_file else subprocess.PIPE as f:
+            process = subprocess.Popen(command, shell=True, stdout=f, stderr=subprocess.STDOUT)
+            process.communicate()
+
+def parse_links(file, pattern):
+    with open(file, "r") as f:
+        links = f.readlines()
+    matched_links = [link.strip() for link in links if re.search(pattern, link)]
+    return matched_links
+
+def save_to_file(data, file):
+    with open(file, "w") as f:
+        for item in data:
+            f.write(f"{item}\n")
+
+def main():
+    parser = argparse.ArgumentParser(description="Comprehensive subdomain and vulnerability scanner")
+    parser.add_argument("-t", "--threads", type=int, default=40, help="Number of threads to use")
+    parser.add_argument("-s", "--subdomains-file", type=str, help="File with subdomains list")
+    parser.add_argument("-w", "--workspace", type=str, required=True, help="Workspace name")
+    parser.add_argument("-d", "--domain", type=str, required=True, help="Domain to scan")
+
+    args = parser.parse_args()
+
+    results_dir = "results"
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+
+    workspace_dir = os.path.join(results_dir, args.workspace)
+    if not os.path.exists(workspace_dir):
+        os.makedirs(workspace_dir)
+
+    subdomains_list = os.path.join(workspace_dir, f"subdomains-{args.domain}.lst")
+
+    subfinder_command = f"subfinder -rl 40 -all -d {args.domain} -o {subdomains_list}"
+    logger.info(f"Running: {subfinder_command}")
+    run_command(subfinder_command, os.path.join(workspace_dir, "subfinder_output.txt"))
+
+    if args.subdomains_file:
+        subdomains_list = args.subdomains_file
+
+    # Run nuclei CVE scan
+    nuclei_cve_command = f"nuclei -t ~/nuclei-templates/http/cves/ -l {subdomains_list} -rl {args.threads} -o {os.path.join(workspace_dir, 'nuclei-found.json')}"
+    logger.info(f"Running: {nuclei_cve_command}")
+    run_command(nuclei_cve_command, os.path.join(workspace_dir, "nuclei_cve_output.txt"))
+    file = open(f"./results/{args.workspace}/nuclei_cve_output.txt")
+    results_output = file.readlines()
+    table = Table(title="Nuclei Results")
+    table.add_column("R", justify="right", style="cyan", no_wrap=True)
+    table.add_row("CVES", f"{results_output}", "*EXPLOIT*",style='bold underline')
+
+    # Run nuclei regular scan
+    nuclei_regular_command = f"nuclei -t ~/nuclei-templates/http/ -l {subdomains_list} -rl {args.threads} -o {os.path.join(workspace_dir, 'nuclei-regular-scan.json')}"
+    logger.info(f"Running: {nuclei_regular_command}")
+    run_command(nuclei_regular_command, os.path.join(workspace_dir, "nuclei_regular_output.txt"))
+    file = open(f"./results/{args.workspace}/nuclei_regular_output.txt")
+    results_output_enumeation = file.readlines()
+    table = Table(title="Nuclei Regular Scan Results")
+    table.add_column("R", justify="right", style="cyan", no_wrap=True)
+    table.add_row("ENUMERATION RESULTS", f"{results_output_enumeation}", "WEBAPP INFO",style='bold underline')
+
+    # Run httpx
+    httpx_command = f"httpx -l {subdomains_list} -threads {args.threads} -title -server -td -method -cdn -o {os.path.join(workspace_dir, 'httpx-found.lst')}"
+    logger.info(f"Running: {httpx_command}")
+    run_command(httpx_command, os.path.join(workspace_dir, "httpx_output.txt"))
+
+    # Run katana
+    katana_command = f"katana -list {subdomains_list} -rl 40 -ns -o {os.path.join(workspace_dir, 'katana-links.lst')}"
+    logger.info(f"Running: {katana_command}")
+    run_command(katana_command, os.path.join(workspace_dir, "katana_output.txt"))
+
+    # Parse for .js files
+    js_files = parse_links(os.path.join(workspace_dir, 'katana-links.lst'), r'\.js$')
+    save_to_file(js_files, os.path.join(workspace_dir, "js-files.lst"))
+
+    # Parse for .php files
+    php_files = parse_links(os.path.join(workspace_dir, 'katana-links.lst'), r'\.php$')
+    save_to_file(php_files, os.path.join(workspace_dir, "php-files.lst"))
+
+    # Parse for URLs with parameters
+    param_urls = parse_links(os.path.join(workspace_dir, 'katana-links.lst'), r'\?.+=')
+    save_to_file(param_urls, os.path.join(workspace_dir, "parameter-urls.lst"))
+
+    # Parse for interesting files
+    interesting_files = parse_links(os.path.join(workspace_dir, 'katana-links.lst'), r'\.(pdf|config|sql)$')
+    save_to_file(interesting_files, os.path.join(workspace_dir, "interesting-links.lst"))
+
+if __name__ == "__main__":
+    main()
+
