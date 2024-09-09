@@ -22,7 +22,7 @@ To get started with ReconRover, you’ll need to have Python 3.x installed, alon
 1. **Clone the Repository**:
 
    ```bash
-   git clone https://github.com/yourusername/reconrover.git
+   git clone https://github.com/kathuluman/reconrover.git
    cd reconrover
    ```
 
