@@ -1,6 +1,6 @@
 # **ReconRover**
 
-![ReconRover](https://img.shields.io/github/license/kathuluman/reconrover?color=blue&style=for-the-badge) ![Version](https://img.shields.io/github/v/tag/kathuluman/reconrover?color=blue&style=for-the-badge)
+![ReconRover](https://img.shields.io/github/license/ByteFuzzer420/reconrover?color=blue&style=for-the-badge) ![Version](https://img.shields.io/github/v/tag/ByteFuzzer420/reconrover?color=blue&style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Version](https://img.shields.io/badge/version-5.0.0-green?style=for-the-badge)
 
@@ -22,7 +22,7 @@ To get started with ReconRover, you’ll need to have Python 3.x installed, alon
 1. **Clone the Repository**:
 
    ```bash
-   git clone https://github.com/kathuluman/reconrover.git
+   git clone https://github.com/ByteFuzzer420/reconrover.git
    cd reconrover
    ```
 
